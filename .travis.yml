@@ -1,0 +1,45 @@
+sudo: required
+
+language: minimal
+
+services:
+  - docker
+
+env:
+  - POSTGRES_IMAGE=postgres:11.1-alpine CLAIR_VERSION=v2.0.8 CLAIR_LOCAL_SCAN_IMAGE=clair-local-scan
+
+install:
+  - docker build -t $CLAIR_LOCAL_SCAN_IMAGE --build-arg VERSION=$CLAIR_VERSION clair
+
+before_script:
+  - docker pull $POSTGRES_IMAGE
+  - docker run -d --name postgres -e 'PGDATA=/var/lib/postgresql/clair' -e POSTGRES_PASSWORD=password $POSTGRES_IMAGE
+  - until docker run --rm -it --link postgres:postgres -e PGPASSWORD=password $POSTGRES_IMAGE pg_isready -U postgres -h postgres; do sleep 1; done
+  - docker run -d --name clair --link postgres:postgres $CLAIR_LOCAL_SCAN_IMAGE
+
+script:
+  - ./check.sh
+
+after_success:
+  - docker stop clair
+  - docker stop postgres
+  - docker commit postgres aporeto/clair-db:$(date +%Y-%m-%d)
+  - docker tag aporeto/clair-db:$(date +%Y-%m-%d) aporeto/clair-db:latest
+  - mkdir -p clair-db
+  - docker save aporeto/clair-db:latest > clair-db/latest.docker
+
+before_deploy:
+  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+
+deploy:
+  - provider: script
+    on:
+      branch: master
+    script:
+      docker push aporeto/clair-db:$(date +%Y-%m-%d) &&
+      docker push aporeto/clair-db:latest
+  - provider: gcs
+    access_key_id: $GCS_KEY_ID
+    secret_access_key: $GCS_ACCESS_KEY
+    bucket: $GCS_BUCKET
+    local-dir: clair-db
