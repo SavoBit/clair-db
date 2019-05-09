@@ -26,10 +26,13 @@ after_success:
   - docker commit postgres aporeto/clair-db:$(date +%Y-%m-%d)
   - docker tag aporeto/clair-db:$(date +%Y-%m-%d) aporeto/clair-db:latest
   - mkdir -p clair-db
-  - docker save aporeto/clair-db:latest > clair-db/latest.docker
+  - docker save aporeto/clair-db:latest > clair-db/clair-db.docker
 
 before_deploy:
   - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
+  - git config --local user.name "ci"
+  - git config --local user.email "ci@aporeto.com"
+  - git tag $(date +%Y-%m-%d)
 
 deploy:
   - provider: script
@@ -38,8 +41,7 @@ deploy:
     script:
       docker push aporeto/clair-db:$(date +%Y-%m-%d) &&
       docker push aporeto/clair-db:latest
-  - provider: gcs
-    access_key_id: $GCS_KEY_ID
-    secret_access_key: $GCS_ACCESS_KEY
-    bucket: $GCS_BUCKET
-    local-dir: clair-db
+  - provider: releases
+    api_key: "$GH_TOKEN"
+    file: clair-db/clair-db.docker
+    skip_cleanup: true
