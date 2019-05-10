@@ -27,20 +27,17 @@ after_success:
   - docker tag aporeto/clair-db:$(date +%Y-%m-%d) aporeto/clair-db:latest
   - mkdir -p clair-db
   - docker save aporeto/clair-db:latest > clair-db/clair-db.docker
-
-before_deploy:
-  - docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD"
   - git config --local user.name "ci"
   - git config --local user.email "ci@aporeto.com"
   - git tag $(date +%Y-%m-%d)
 
 deploy:
   - provider: script
-    on:
-      branch: master
     script:
+      docker login -u="$DOCKER_USERNAME" -p="$DOCKER_PASSWORD" &&
       docker push aporeto/clair-db:$(date +%Y-%m-%d) &&
       docker push aporeto/clair-db:latest
+    skip-cleanup: true
   - provider: releases
     api_key: "$GH_TOKEN"
     file: clair-db/clair-db.docker
