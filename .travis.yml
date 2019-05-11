@@ -19,7 +19,7 @@ before_script:
   - docker run -d --name clair --link postgres:postgres $CLAIR_LOCAL_SCAN_IMAGE
 
 script:
-  - travis_wait 30 ./check.sh
+  - travis_wait 40 ./check.sh
 
 after_success:
   - docker stop clair
