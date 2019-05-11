@@ -2,21 +2,40 @@
 
 CONTAINER="${1:-clair}"
 
-while true
-do
-    docker logs "$CONTAINER" | grep "update finished" >& /dev/null
-    if [ $? == 0 ]; then
-        break
+
+# Look for success without failure for 40 minutes
+# Travis will kill the job after 50min so we have
+# 10min left to finish our work
+
+RT=$(($(docker ps -f name=clair --format '{{.Status}}' |grep minutes | awk '{print $2}')*60))
+
+SECONDS=$RT
+FAILURES=0
+UPDATES=1
+
+
+while read -r log; do
+    echo "$log"
+    # if we are reaching the timeout just abort nicely at 35min
+    if [ $SECONDS -gt 2100 ]; then
+      echo "----> Timeout, reached with $FAILURES failure(s)"
+      exit 0
     fi
 
-    docker logs "$CONTAINER" | grep "an error occured" >& /dev/null
-    if [ $? == 0 ]; then
-        echo "Error happend" >&2
-        docker logs "$CONTAINER"
-        exit 1
-    fi
+    case "$log" in
 
-    echo -n "."
-    sleep 10
-done
-echo ""
+      *"update finished"*)
+        echo "----> Update $UPDATES finished, with $FAILURES failure(s)"
+        if [ "$FAILURES" == 0 ]; then
+          break
+        fi
+      ;;
+
+      *"an error occured"*)
+        FAILURES=$((FAILURES+1))
+        echo "----> $FAILURES Failure(s) detected"
+      ;;
+
+    esac
+
+done < <(docker logs "$CONTAINER" -f)
