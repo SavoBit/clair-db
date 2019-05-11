@@ -7,12 +7,9 @@ CONTAINER="${1:-clair}"
 # Travis will kill the job after 50min so we have
 # 10min left to finish our work
 
-RT=$(($(docker ps -f name=clair --format '{{.Status}}' |grep minutes | awk '{print $2}')*60))
-
-SECONDS=$RT
+SECONDS=0
 FAILURES=0
 UPDATES=1
-
 
 while read -r log; do
     echo "$log"

@@ -25,7 +25,7 @@ after_success:
   - docker stop clair
   - docker stop postgres
   - docker commit postgres clair-db:current
-  - docker save clair-db:current | ./docker-squash -t clair-db:squashed | docker load
+  - docker save clair-db:current | sudo ./docker-squash -t clair-db:squashed | docker load
   - docker tag clair-db:squashed aporeto/clair-db:latest
   - docker tag clair-db:squashed aporeto/clair-db:$(date +%Y-%m-%d)
   - mkdir -p clair-db
