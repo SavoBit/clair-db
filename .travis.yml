@@ -13,7 +13,6 @@ install:
 
 before_script:
   - wget https://github.com/jwilder/docker-squash/releases/download/v0.2.0/docker-squash-linux-amd64-v0.2.0.tar.gz -O - | tar -xz
-  - docker pull $POSTGRES_IMAGE
   - docker run -d --name postgres -e 'PGDATA=/var/lib/postgresql/clair' -e POSTGRES_PASSWORD=password $POSTGRES_IMAGE
   - until docker run --rm -it --link postgres:postgres -e PGPASSWORD=password $POSTGRES_IMAGE pg_isready -U postgres -h postgres; do sleep 1; done
   - docker run -d --name clair --link postgres:postgres $CLAIR_LOCAL_SCAN_IMAGE
@@ -24,10 +23,8 @@ script:
 after_success:
   - docker stop clair
   - docker stop postgres
-  - docker commit postgres clair-db:current
-  - docker save clair-db:current | sudo ./docker-squash -t squashed | docker load
-  - docker tag clair-db:squashed aporeto/clair-db:latest
-  - docker tag clair-db:squashed aporeto/clair-db:$(date +%Y-%m-%d)
+  - docker save $(docker commit postgres) | sudo ./docker-squash -t aporeto/clair-db:latest -verbose | docker load
+  - docker tag aporeto/clair-db:latest aporeto/clair-db:$(date +%Y-%m-%d)
   - mkdir -p clair-db
   - docker save aporeto/clair-db:latest > clair-db/clair-db.docker
   - git config --local user.name "ci"
