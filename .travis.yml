@@ -6,15 +6,14 @@ services:
   - docker
 
 env:
-  - POSTGRES_IMAGE=aporeto/clair-db:latest CLAIR_VERSION=v2.0.8 CLAIR_LOCAL_SCAN_IMAGE=clair-local-scan
+  - POSTGRES_IMAGE=postgres:11.1-alpine CLAIR_DB_IMAGE=aporeto/clair-db:latest CLAIR_VERSION=v2.0.8 CLAIR_LOCAL_SCAN_IMAGE=clair-local-scan
 
 install:
   - docker build -t $CLAIR_LOCAL_SCAN_IMAGE --build-arg VERSION=$CLAIR_VERSION clair
 
 before_script:
-  - wget https://github.com/jwilder/docker-squash/releases/download/v0.2.0/docker-squash-linux-amd64-v0.2.0.tar.gz -O - | tar -xz
-  - docker run -d --name postgres -e 'PGDATA=/var/lib/postgresql/clair' -e POSTGRES_PASSWORD=password $POSTGRES_IMAGE
-  - until docker run --rm -it --link postgres:postgres -e PGPASSWORD=password $POSTGRES_IMAGE pg_isready -U postgres -h postgres; do sleep 1; done
+  - docker run -d --name postgres -e 'PGDATA=/var/lib/postgresql/clair' -e POSTGRES_PASSWORD=password $CLAIR_DB_IMAGE
+  - until docker run --rm -it --link postgres:postgres -e PGPASSWORD=password $CLAIR_DB_IMAGE pg_isready -U postgres -h postgres; do sleep 1; done
   - docker run -d --name clair --link postgres:postgres $CLAIR_LOCAL_SCAN_IMAGE
 
 script:
@@ -22,12 +21,13 @@ script:
 
 after_success:
   - docker stop clair
+  - docker exec postgres pg_dumpall -U postgres > pg.data
   - docker stop postgres
-  - docker save $(docker commit postgres) > current
-  - sudo ./docker-squash -i current -o squashed -t aporeto/clair-db:latest -verbose
-  - docker images
-  - docker load -i squashed
-  - docker images
+  - docker run -d --name vanilla -e 'PGDATA=/var/lib/postgresql/clair' -e POSTGRES_PASSWORD=password $POSTGRES_IMAGE
+  - until docker run --rm -it --link vanilla:postgres -e PGPASSWORD=password $POSTGRES_IMAGE pg_isready -U postgres -h postgres; do sleep 1; done
+  - docker exec -i vanilla psql -U postgres < pg.data
+  - docker stop vanilla
+  - docker commit vanilla aporeto/clair-db:latest
   - docker tag aporeto/clair-db:latest aporeto/clair-db:$(date +%Y-%m-%d)
   - mkdir -p clair-db
   - docker save aporeto/clair-db:latest > clair-db/clair-db.docker
