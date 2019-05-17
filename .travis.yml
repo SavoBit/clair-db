@@ -36,7 +36,7 @@ before_deploy:
   - git config --local user.name "ci"
   - git config --local user.email "ci@aporeto.com"
   - export TRAVIS_TAG=${TRAVIS_TAG:-$(date +%Y-%m-%d)}
-  - git tag $TRAVIS_TAG
+  - git tag $TRAVIS_TAG --force
 
 deploy:
   - provider: script
