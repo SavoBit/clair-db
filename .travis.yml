@@ -31,9 +31,12 @@ after_success:
   - docker tag aporeto/clair-db:latest aporeto/clair-db:$(date +%Y-%m-%d)
   - mkdir -p clair-db
   - docker save aporeto/clair-db:latest > clair-db/clair-db.docker
+
+before_deploy:
   - git config --local user.name "ci"
   - git config --local user.email "ci@aporeto.com"
-  - git tag $(date +%Y-%m-%d)
+  - export TRAVIS_TAG=${TRAVIS_TAG:-$(date +%Y-%m-%d)}
+  - git tag $TRAVIS_TAG
 
 deploy:
   - provider: script
